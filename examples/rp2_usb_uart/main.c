@@ -45,7 +45,7 @@ int main(void) {
     ice_usb_init();
 
     // Initialize the FPGA
-    ice_fpga_init(FPGA_DATA, 48);
+    ice_fpga_init(FPGA_DATA, ICE_FPGA_DEFAULT_FREQUENCY);
 
     // Let the FPGA start
     ice_fpga_start(FPGA_DATA);

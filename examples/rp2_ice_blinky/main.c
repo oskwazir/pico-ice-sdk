@@ -35,7 +35,7 @@ uint8_t bitstream[] = {
 
 int main(void) {
     ice_led_init();
-	ice_fpga_init(FPGA_DATA, 48);
+    ice_fpga_init(FPGA_DATA, ICE_FPGA_DEFAULT_FREQUENCY);
     ice_fpga_start(FPGA_DATA);
 
     // Write the whole bitstream to the FPGA CRAM

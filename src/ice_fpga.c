@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2025 tinyVision.ai
+ * Copyright (c) 2025-2026 tinyVision.ai
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,11 +30,23 @@
 #include "ice_HAL.h"
 #include "ice_fpga.h"
 
-int ice_fpga_init(const ice_fpga fpga, uint8_t freq_mhz)
+int ice_fpga_init(const ice_fpga fpga, uint32_t freq_hz)
 {
-    uint src = CLOCKS_CLK_GPOUT0_CTRL_AUXSRC_VALUE_CLK_USB;
+    uint32_t xosc_freq = AS_KHZ(frequency_count_khz(CLOCKS_FC0_SRC_VALUE_XOSC_CLKSRC));
+    uint32_t sys_pll_freq = AS_KHZ(frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY));
+    uint32_t usb_pll_freq = AS_KHZ(frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_USB_CLKSRC_PRIMARY));
+    uint src = CLOCKS_CLK_GPOUT0_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB;
+    float div = (float)usb_pll_freq / (float)freq_hz;
 
-    clock_gpio_init(fpga.pin_clock, src, 48 / freq_mhz);
+    if (freq_hz > usb_pll_freq) {
+        src = CLOCKS_CLK_GPOUT0_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS;
+        div = (float)sys_pll_freq / (float)freq_hz;
+    } else if (freq_hz <= xosc_freq) {
+        src = CLOCKS_CLK_GPOUT0_CTRL_AUXSRC_VALUE_XOSC_CLKSRC;
+        div = (float)xosc_freq / (float)freq_hz;
+    }
+
+    clock_gpio_init(fpga.pin_clock, src, div);
     ice_hal_gpio_init(fpga.pin_creset);
 
     return 0;

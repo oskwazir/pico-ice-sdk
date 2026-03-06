@@ -51,7 +51,7 @@ int main(void) {
     ice_led_init();
 
     // Initialize the FPGA
-    ice_fpga_init(FPGA_DATA, 6);
+    ice_fpga_init(FPGA_DATA, AS_MHZ(6));
     ice_fpga_start(FPGA_DATA);
 
     // Write the whole bitstream to the FPGA CRAM

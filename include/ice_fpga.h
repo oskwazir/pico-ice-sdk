@@ -1,7 +1,7 @@
 /*
  * MIT License
  * 
- * Copyright (c) 2023 tinyVision.ai
+ * Copyright (c) 2023-2026 tinyVision.ai
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -44,17 +44,23 @@
 extern "C" {
 #endif
 
+/** KHz to Hz */
+#define AS_KHZ(_f) (_f * 1000)
+/** MHz to Hz */
+#define AS_MHZ(_f) AS_KHZ(_f * 1000)
+/** Default 48MHz FPGA frequency */
+#define ICE_FPGA_DEFAULT_FREQUENCY AS_MHZ(48)
+
 /**
  * @brief Let the FPGA start and export a clock for it over `ICE_FPGA_CLOCK_PIN`.
- * @param freq_mhz Exported clock frequency in MHz. Valid values: 48MHz, 24MHz,
- *  16MHz 12MHz, 8MHz, 6MHz, 4MHz, 3MHz, 2MHz, 1MHz.
+ * @param freq_hz Exported clock frequency in Hz. Supported range is XOSC/65536 to SYS_PLL (125 or 150MHz)
  *
- * The RP2040 exports its own crystal-based clock to the iCE40, through the
+ * The RP2 exports its own crystal-based clock to the iCE40, through the
  * dedicated [`CLOCK GPOUT0`](https://datasheets.raspberrypi.com/rp2040/rp2040-datasheet.pdf)
  * feature.
  * @return 0 on success, negative on fail
  */
-int ice_fpga_init(const ice_fpga fpga, uint8_t freq_mhz);
+int ice_fpga_init(const ice_fpga fpga, uint32_t freq_hz);
 
 /**
  * @brief Release the stop mode if it was present, and wait that the FPGA
