@@ -2,13 +2,35 @@
 """Generate compile_commands.json so CLion can index this repo without a
 cross-toolchain or a real CMake configure. Read-only aid: nothing here is used
 by an actual build. Re-run after changing the file list.
+
+    python3 .clion-index/gen_compile_commands.py            generate
+    python3 .clion-index/gen_compile_commands.py --check     generate, then
+                                                            compile every entry
+
+--check is the only honest test that indexing works. CLion going quiet is not:
+a file that fails to parse produces no warning, it just silently stops
+resolving its own symbols. Run it on any new machine, and whenever the host
+compiler or libc changes.
+
+The host compiler stands in for arm-none-eabi-gcc, so $CC can be anything that
+parses GNU C. Verified with gcc 16 / glibc; Apple clang with the Darwin SDK is
+expected to work because host_compat.h only fills gaps it finds (see the
+#ifndef guards there), but it is untested.
 """
 import json
+import os
 import pathlib
+import subprocess
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SDK = ROOT / "lib" / "pico-sdk"
 STUBS = ROOT / ".clion-index"
+CC = os.environ.get("CC", "cc")
+
+if not (SDK / "src" / "rp2350").is_dir():
+    sys.exit("lib/pico-sdk is empty. Run:\n"
+             "    git submodule update --init lib/pico-sdk")
 
 inc = [STUBS, ROOT / "include", ROOT / "include" / "boards"]
 for base in ("src/common", "src/rp2_common", "src/rp2350"):
@@ -43,7 +65,7 @@ sources += [
     and p.parent.name not in SKIP_EXAMPLES
 ]
 
-flags = ["cc", "-std=gnu11", "-fsyntax-only"]
+flags = [CC, "-std=gnu11", "-fsyntax-only"]
 flags += ["-include", str(STUBS / "host_compat.h")]
 flags += [f"-D{d}" for d in defines]
 flags += [f"-I{d}" for d in inc]
@@ -53,4 +75,25 @@ db = [
     for s in sources
 ]
 (ROOT / "compile_commands.json").write_text(json.dumps(db, indent=1) + "\n")
-print(f"{len(db)} entries, {len(inc)} include dirs")
+print(f"{len(db)} entries, {len(inc)} include dirs, CC={CC}")
+
+if "--check" not in sys.argv:
+    sys.exit(0)
+
+failed = 0
+for entry in db:
+    name = str(pathlib.Path(entry["file"]).relative_to(ROOT))
+    proc = subprocess.run(entry["arguments"], cwd=entry["directory"],
+                          capture_output=True, text=True)
+    errors = [ln for ln in proc.stderr.splitlines() if "error:" in ln]
+    if errors:
+        failed += 1
+        print(f"FAIL {name}\n     {errors[0]}")
+    else:
+        print(f"ok   {name}")
+
+print(f"\n{len(db) - failed}/{len(db)} parse clean")
+if failed:
+    print("A new host compiler or libc may need another #ifndef block in "
+          "host_compat.h; see the __unused / __CONCAT entries there.")
+sys.exit(1 if failed else 0)
