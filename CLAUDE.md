@@ -67,15 +67,19 @@ is out of scope for the crate.
   is gone.
 - `ice_fpga_write` and `ice_fpga_read` have no definition anywhere in the repo. The only
   call sites are `examples/rp2_fpga_io/main.c:46-47` and `src/ice_usb.c:282,287`, so
-  `ice_usb.c` doesn't compile at `f3ddedc` either.
+  `ice_usb.c` doesn't compile at `f3ddedc` either. That also means `rp2_fpga_io` can't be
+  rescued by fixing its `main.c`: `CMakeLists.txt:23` links `pico_ice_usb`, which contains
+  `ice_usb.c`, so the link fails from inside the library.
 - `include/ice_fpga.h` declares `ice_fpga_stop` twice, at `:77` and `:84`, with identical
   doc comments. The second slot is where a declaration for `ice_fpga_configured`
   (`src/ice_fpga.c:73`) would sit, between `ice_fpga_stop` and `ice_fpga_deinit`.
 - `include/ice_HAL.h:64` uses `size_t` but includes only `<stdint.h>` and `<errno.h>`
   (`:25-26`). Every other consumer includes a pico-sdk header first and gets `size_t` by
   accident. `src/ice_led.c:26-28` includes only `#define` headers, so it's the one file
-  where the order matters. Whether arm-none-eabi-gcc survives it depends on newlib's
-  `<errno.h>` reaching `size_t`; untested.
+  where the order matters. It survives on the real toolchain: newlib's `<errno.h>` pulls
+  `sys/errno.h` -> `sys/reent.h` -> `<stddef.h>`, so `size_t` is there. Verified against
+  newlib 4.5.0 headers; `ice_led.c` compiles clean with them and fails with glibc. So the
+  bug is latent, and only bites non-newlib libcs like the CLion indexing setup.
 - Nothing builds all the examples at once. There's no `examples/CMakeLists.txt`, and each
   `rp2_*` example is a standalone CMake project with its own `pico-ice-sdk` and `pico-sdk`
   symlinks. That's how the stale examples went unnoticed.
@@ -83,3 +87,8 @@ is out of scope for the crate.
 ## How to write to me
 
 Plain, direct prose. Short answers. Cite `file:line` when pointing at code.
+
+I'm new to C as well as to FPGAs. Don't assume toolchain mechanics are obvious to me:
+preprocessor text pasting, include order, declaration vs definition, which build stage an
+error comes from, CMake cache variables vs compiler `-D`. Name the mechanism and the stage
+when it's load-bearing for the point, not as background on every answer.
