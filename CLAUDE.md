@@ -1,0 +1,63 @@
+# Why this repo is here
+
+This is my fork of tinyVision's pico-ice-sdk (C, for the pico2-ice: RP2350B + iCE40UP5K).
+I'm not building it or contributing to it. I'm reading it to learn how the RP2350 drives
+the FPGA so I can write a Rust crate that does the same thing: `pico2-ice`, in
+`~/Repos/pico2-ice-rs` (embassy-rp 0.10, `rp235xb`).
+
+I'm new to FPGAs. Walk me through the code, answer questions, and explain the hardware
+reasons behind what the C does. I write the Rust myself, so don't write crate code unless
+I ask.
+
+## Branches
+
+- `main`: untouched upstream, commit `f3ddedc` (2026-03-06). Upstream is the `upstream`
+  remote.
+- `annotations`: my comments on the code. Comments go here, and never change the code's
+  behaviour. Add comments only when I ask; I usually write my own.
+
+This file is untracked and excluded in `.git/info/exclude`, so it stays out of both
+branches.
+
+## The plan these files feed
+
+`~/Repos/hardware/pico2-ice-rust-crate.md` holds the spec and the staged bring-up.
+`~/Repos/hardware/pico-ice-sdk-reading-guide.md` is the detailed walkthrough of this
+repo: what to look for in each file, with line numbers at `f3ddedc`. Read the guide
+before answering questions about a file; it may already cover the point. The reading
+order:
+
+1. `include/boards/pico2_ice.h`
+2. `src/ice_fpga_data.c`
+3. `include/ice_fpga.h`, `src/ice_fpga.c`
+4. `examples/rp2_fpga/main.c`
+5. `src/ice_cram.c`, `src/ice_cram.pio`
+6. `examples/rp2_cram/main.c`
+7. `src/pico-sdk_ice_hal.c`
+8. `src/ice_flash.c`
+9. `examples/ice_makefile_blinky/`
+
+Skip `ice_usb.c`, `tinyuf2_*` and the `rp2_usb_*` examples. USB drag-and-drop/DFU loading
+is out of scope for the crate.
+
+## Things already found in this code
+
+- `pico2_ice.h` says `ICE_GPOUT_CLOCK_PIN 22`, but that define is stale and unused. The
+  real FPGA clock pin is GPIO 21, in `src/ice_fpga_data.c`.
+- Loading CRAM means transmitting on GPIO 4, which is SPI0's RX pin. That's why
+  `ice_hal_spi_init` falls back to PIO (`ice_cram.pio`).
+- One CS pin (GPIO 5) serves both the flash and CRAM loading. Its level when CRESET is
+  released decides which mode the FPGA boots in.
+- `ice_cram_close` sends 56 clocks after CDONE (`:102-103`), meeting Lattice's minimum
+  of 49 (FPGA-TN-02001). But it returns the CRESET level (`:109`), not CDONE, so it
+  reports success even when the bitstream is rejected.
+- `ice_fpga_start` doesn't wait for CDONE despite its doc comment.
+  `ice_fpga_configured` does the wait, but no header declares it and no example calls it.
+- The PIO CRAM path ignores the 1 MHz `freq` argument and runs at about 37.5 Mbit/s
+  (`clk_div = 1`, 4 cycles per bit).
+- `include/boards/ice40up5k.h` holds pico-ice (RP2040) values and is wrong for this board.
+- `CS_psram = -1`: the PSRAM isn't on the FPGA's bus.
+
+## How to write to me
+
+Plain, direct prose. Short answers. Cite `file:line` when pointing at code.
