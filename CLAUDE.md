@@ -57,6 +57,28 @@ is out of scope for the crate.
   (`clk_div = 1`, 4 cycles per bit).
 - `include/boards/ice40up5k.h` holds pico-ice (RP2040) values and is wrong for this board.
 - `CS_psram = -1`: the PSRAM isn't on the FPGA's bus.
+- `include/ice_spi.h` and `src/ice_spi.c` were deleted in `0bb23bd` (2025-05-24), the
+  pico2-ice port merge, along with `ice_sram.*`. The ten `ice_spi_*` functions became the
+  four in `include/ice_HAL.h:54-82`.
+- `examples/rp2_fpga_io/` is pre-port dead code, added by that same merge off the old
+  branch. It includes the deleted `ice_spi.h` (`:29`) without calling anything from it,
+  uses the old one-arg `ice_fpga_init(12)` (`:39`, and `12` is the pre-`f3ddedc` MHz
+  convention), and calls `ice_fpga_write`/`ice_fpga_read` (`:46-47`). The API it describes
+  is gone.
+- `ice_fpga_write` and `ice_fpga_read` have no definition anywhere in the repo. The only
+  call sites are `examples/rp2_fpga_io/main.c:46-47` and `src/ice_usb.c:282,287`, so
+  `ice_usb.c` doesn't compile at `f3ddedc` either.
+- `include/ice_fpga.h` declares `ice_fpga_stop` twice, at `:77` and `:84`, with identical
+  doc comments. The second slot is where a declaration for `ice_fpga_configured`
+  (`src/ice_fpga.c:73`) would sit, between `ice_fpga_stop` and `ice_fpga_deinit`.
+- `include/ice_HAL.h:64` uses `size_t` but includes only `<stdint.h>` and `<errno.h>`
+  (`:25-26`). Every other consumer includes a pico-sdk header first and gets `size_t` by
+  accident. `src/ice_led.c:26-28` includes only `#define` headers, so it's the one file
+  where the order matters. Whether arm-none-eabi-gcc survives it depends on newlib's
+  `<errno.h>` reaching `size_t`; untested.
+- Nothing builds all the examples at once. There's no `examples/CMakeLists.txt`, and each
+  `rp2_*` example is a standalone CMake project with its own `pico-ice-sdk` and `pico-sdk`
+  symlinks. That's how the stale examples went unnoticed.
 
 ## How to write to me
 

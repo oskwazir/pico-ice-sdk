@@ -4,3 +4,4 @@ __pycache__
 *.gtkw
 *.vvp
 /.idea
+compile_commands.json
